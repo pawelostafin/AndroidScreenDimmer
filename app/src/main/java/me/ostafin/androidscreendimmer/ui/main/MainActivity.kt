@@ -77,9 +77,8 @@ class MainActivity : BaseActivity<MainViewModel>() {
     }
 
     private fun openDrawOverAppsSystemSettings() {
-        openDrawOverAppsSystemSettings()
         val intent = getDrawOverAppsSystemSettingsIntent(this)
-        startActivityForResult(intent, DRAW_OVER_SYSTEM_SETTINGS_REQUEST_CODE)
+        startActivity(intent)
     }
 
     private fun setOverlayVisibilityState(isVisible: Boolean) {
@@ -126,18 +125,6 @@ class MainActivity : BaseActivity<MainViewModel>() {
             OFF -> "OFF"
         }
         toggleButton.text = buttonText
-    }
-
-    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
-        super.onActivityResult(requestCode, resultCode, data)
-
-        if (requestCode == DRAW_OVER_SYSTEM_SETTINGS_REQUEST_CODE) {
-            viewModel.drawOverAppsSettingsChanged()
-        }
-    }
-
-    companion object {
-        const val DRAW_OVER_SYSTEM_SETTINGS_REQUEST_CODE = 555
     }
 
 }
