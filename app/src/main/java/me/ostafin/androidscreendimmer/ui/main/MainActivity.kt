@@ -1,9 +1,7 @@
 package me.ostafin.androidscreendimmer.ui.main
 
-import android.content.Intent
 import android.graphics.PixelFormat
 import android.os.Build
-import android.provider.Settings
 import android.view.WindowManager.LayoutParams
 import android.view.WindowManager.LayoutParams.*
 import android.widget.SeekBar
@@ -83,11 +81,7 @@ class MainActivity : BaseActivity<MainViewModel>() {
 
     private fun setOverlayVisibilityState(isVisible: Boolean) {
         if (isVisible) {
-            if (Settings.canDrawOverlays(this)) {
-                drawOverlay()
-            } else {
-                startActivityForResult(intent, 0)
-            }
+            drawOverlay()
         } else {
             removeOverlay()
         }
