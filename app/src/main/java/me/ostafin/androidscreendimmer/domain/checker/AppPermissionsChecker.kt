@@ -1,6 +1,7 @@
 package me.ostafin.androidscreendimmer.domain.checker
 
 import android.content.Context
+import android.os.Build
 import android.provider.Settings
 import me.ostafin.androidscreendimmer.app.di.qualifier.ApplicationContext
 import javax.inject.Inject
@@ -10,6 +11,12 @@ class AppPermissionsChecker @Inject constructor(
 ) {
 
     val canDrawOverlays: Boolean
-        get() = Settings.canDrawOverlays(context)
+        get() {
+            return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                Settings.canDrawOverlays(context)
+            } else {
+                true
+            }
+        }
 
 }
