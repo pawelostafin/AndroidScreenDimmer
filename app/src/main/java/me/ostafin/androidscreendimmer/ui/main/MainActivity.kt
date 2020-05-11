@@ -1,13 +1,18 @@
 package me.ostafin.androidscreendimmer.ui.main
 
+import android.content.Intent
 import android.graphics.PixelFormat
 import android.os.Build
+import android.util.DisplayMetrics
+import android.view.Gravity
 import android.view.WindowManager.LayoutParams
 import android.view.WindowManager.LayoutParams.*
 import android.widget.SeekBar
+import androidx.core.content.ContextCompat
 import io.reactivex.rxkotlin.addTo
 import kotlinx.android.synthetic.main.activity_main.*
 import me.ostafin.androidscreendimmer.R
+import me.ostafin.androidscreendimmer.service.ForegroundService
 import me.ostafin.androidscreendimmer.ui.base.BaseActivity
 import me.ostafin.androidscreendimmer.ui.main.model.ButtonState
 import me.ostafin.androidscreendimmer.ui.main.model.ButtonState.OFF
@@ -83,8 +88,14 @@ class MainActivity : BaseActivity<MainViewModel>() {
 
     private fun setOverlayVisibilityState(isVisible: Boolean) {
         when {
-            isVisible && shouldDrawOverlay() -> drawOverlay()
-            !isVisible && shouldRemoveOverlay() -> removeOverlay()
+            isVisible && shouldDrawOverlay() -> {
+                drawOverlay()
+                startService()
+            }
+            !isVisible && shouldRemoveOverlay() -> {
+                removeOverlay()
+                stopService()
+            }
         }
     }
 
@@ -100,20 +111,39 @@ class MainActivity : BaseActivity<MainViewModel>() {
         val overlayFlag = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             TYPE_APPLICATION_OVERLAY
         } else {
-            TYPE_SYSTEM_ALERT
+            TYPE_SYSTEM_OVERLAY
         }
 
+        val displayMetrics = DisplayMetrics()
+        windowManager.defaultDisplay.getMetrics(displayMetrics)
+        val width = displayMetrics.widthPixels
+        val height = displayMetrics.heightPixels * 1.5
+
+
         val params = LayoutParams(
-            MATCH_PARENT,
-            MATCH_PARENT,
+            width,
+            height.toInt(),
             overlayFlag,
-            FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS or FLAG_NOT_FOCUSABLE or FLAG_NOT_TOUCHABLE,
+            FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS or FLAG_NOT_FOCUSABLE or FLAG_NOT_TOUCHABLE or FLAG_LAYOUT_NO_LIMITS or FLAG_FULLSCREEN or FLAG_LAYOUT_IN_SCREEN,
             PixelFormat.TRANSLUCENT
-        )
+        ).apply {
+            gravity = Gravity.START or Gravity.BOTTOM
+            y = (-height * 0.25).toInt()
+        }
 
         windowManager.addView(androidScreenDimmerApp.overlayView, params)
     }
 
+    private fun startService() {
+        val serviceIntent = Intent(this, ForegroundService::class.java)
+        serviceIntent.putExtra("inputExtra", "Foreground Service Example in Android")
+        ContextCompat.startForegroundService(this, serviceIntent)
+    }
+
+    private fun stopService() {
+        val serviceIntent = Intent(this, ForegroundService::class.java)
+        stopService(serviceIntent)
+    }
 
     private fun removeOverlay() {
         windowManager.removeView(androidScreenDimmerApp.overlayView)

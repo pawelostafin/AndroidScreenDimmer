@@ -4,6 +4,7 @@
     package="me.ostafin.androidscreendimmer">
 
     <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
 
     <application
         android:name=".app.AndroidScreenDimmerApp"
@@ -23,6 +24,12 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <service
+            android:name=".service.ForegroundService"
+            android:enabled="true"
+            android:exported="true" />
+
     </application>
 
 </manifest>
