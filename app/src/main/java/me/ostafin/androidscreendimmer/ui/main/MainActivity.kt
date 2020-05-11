@@ -26,12 +26,14 @@ class MainActivity : BaseActivity<MainViewModel>() {
     override fun setupView() {
         super.setupView()
 
-        createAndStoreOverlayView()
+        createAndStoreOverlayViewIfNeeded()
         bindUi()
     }
 
-    private fun createAndStoreOverlayView() {
-        androidScreenDimmerApp.overlayView = layoutInflater.inflate(R.layout.my_view, null)
+    private fun createAndStoreOverlayViewIfNeeded() {
+        if (androidScreenDimmerApp.overlayView == null) {
+            androidScreenDimmerApp.overlayView = layoutInflater.inflate(R.layout.my_view, null)
+        }
     }
 
     override fun observeViewModel() {
@@ -80,11 +82,18 @@ class MainActivity : BaseActivity<MainViewModel>() {
     }
 
     private fun setOverlayVisibilityState(isVisible: Boolean) {
-        if (isVisible) {
-            drawOverlay()
-        } else {
-            removeOverlay()
+        when {
+            isVisible && shouldDrawOverlay() -> drawOverlay()
+            !isVisible && shouldRemoveOverlay() -> removeOverlay()
         }
+    }
+
+    private fun shouldDrawOverlay(): Boolean {
+        return androidScreenDimmerApp.overlayView?.isAttachedToWindow == false
+    }
+
+    private fun shouldRemoveOverlay(): Boolean {
+        return androidScreenDimmerApp.overlayView?.isAttachedToWindow == true
     }
 
     private fun drawOverlay() {
@@ -105,12 +114,9 @@ class MainActivity : BaseActivity<MainViewModel>() {
         windowManager.addView(androidScreenDimmerApp.overlayView, params)
     }
 
+
     private fun removeOverlay() {
-        androidScreenDimmerApp.overlayView?.let {
-            if (it.isAttachedToWindow) {
-                windowManager.removeView(it)
-            }
-        }
+        windowManager.removeView(androidScreenDimmerApp.overlayView)
     }
 
     private fun setButtonState(buttonState: ButtonState) {
