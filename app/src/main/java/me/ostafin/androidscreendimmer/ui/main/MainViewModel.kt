@@ -6,12 +6,12 @@ import com.jakewharton.rxrelay2.BehaviorRelay
 import io.reactivex.Observable
 import io.reactivex.disposables.CompositeDisposable
 import io.reactivex.rxkotlin.addTo
-import me.ostafin.androidscreendimmer.ui.main.ButtonState.*
-import kotlin.math.floor
+import me.ostafin.androidscreendimmer.ui.base.BaseViewModel
+import me.ostafin.androidscreendimmer.ui.main.model.ButtonState
+import me.ostafin.androidscreendimmer.ui.main.model.ButtonState.*
+import javax.inject.Inject
 
-class MainViewModel : ViewModel() {
-
-    private val compositeDisposable = CompositeDisposable()
+class MainViewModel @Inject constructor() : BaseViewModel() {
 
     private var buttonStateRelay: BehaviorRelay<ButtonState> = BehaviorRelay.create()
     var buttonStateObs: Observable<ButtonState> = buttonStateRelay
@@ -30,7 +30,9 @@ class MainViewModel : ViewModel() {
     private val openDrawOverAppSystemSettingsRelay: BehaviorRelay<Unit> = BehaviorRelay.create()
     var openDrawOverAppSystemSettingsObs: Observable<Unit> = openDrawOverAppSystemSettingsRelay
 
-    init {
+    override fun onInitialized() {
+        super.onInitialized()
+
         initializeButtonState()
         initializeSliderValue()
         setupOverlayVisibilityStateChange()

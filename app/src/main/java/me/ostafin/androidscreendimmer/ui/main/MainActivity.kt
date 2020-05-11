@@ -3,41 +3,32 @@ package me.ostafin.androidscreendimmer.ui.main
 import android.content.Intent
 import android.graphics.PixelFormat
 import android.os.Build
-import android.os.Bundle
 import android.provider.Settings
 import android.view.WindowManager.LayoutParams
 import android.view.WindowManager.LayoutParams.*
 import android.widget.SeekBar
-import androidx.appcompat.app.AppCompatActivity
-import androidx.lifecycle.ViewModelProvider
-import io.reactivex.disposables.CompositeDisposable
 import io.reactivex.rxkotlin.addTo
 import kotlinx.android.synthetic.main.activity_main.*
 import me.ostafin.androidscreendimmer.R
-import me.ostafin.androidscreendimmer.ui.AndroidScreenDimmerApp
-import me.ostafin.androidscreendimmer.ui.main.ButtonState.OFF
-import me.ostafin.androidscreendimmer.ui.main.ButtonState.ON
+import me.ostafin.androidscreendimmer.ui.base.BaseActivity
+import me.ostafin.androidscreendimmer.ui.main.model.ButtonState
+import me.ostafin.androidscreendimmer.ui.main.model.ButtonState.OFF
+import me.ostafin.androidscreendimmer.ui.main.model.ButtonState.ON
 import me.ostafin.androidscreendimmer.util.getDrawOverAppsSystemSettingsIntent
 
 
-class MainActivity : AppCompatActivity() {
+class MainActivity : BaseActivity<MainViewModel>() {
 
-    private val compositeDisposable = CompositeDisposable()
+    override val viewModelType: Class<MainViewModel>
+        get() = MainViewModel::class.java
 
-    private val androidScreenDimmerApp: AndroidScreenDimmerApp
-        get() = application as AndroidScreenDimmerApp
+    override val layoutId: Int
+        get() = R.layout.activity_main
 
-    private val viewModel: MainViewModel by lazy {
-        val factory = ViewModelProvider.AndroidViewModelFactory.getInstance(application)
-        ViewModelProvider(this, factory).get(MainViewModel::class.java)
-    }
-
-    override fun onCreate(savedInstanceState: Bundle?) {
-        super.onCreate(savedInstanceState)
-        setContentView(R.layout.activity_main)
+    override fun setupView() {
+        super.setupView()
 
         createAndStoreOverlayView()
-        observeViewModel()
         bindUi()
     }
 
@@ -45,7 +36,7 @@ class MainActivity : AppCompatActivity() {
         androidScreenDimmerApp.overlayView = layoutInflater.inflate(R.layout.my_view, null)
     }
 
-    private fun observeViewModel() {
+    override fun observeViewModel() {
         viewModel.buttonStateObs
             .subscribe(::setButtonState)
             .addTo(compositeDisposable)
