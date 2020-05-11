@@ -38,7 +38,7 @@ class MainViewModel : ViewModel() {
 
     private fun initializeSliderValue() {
         //TODO save value in shared preferences
-        sliderValueChangedRelay.accept(50)
+        sliderValueChangedRelay.accept(DEFAULT_SLIDER_PERCENTAGE)
     }
 
     private fun setupOverlayVisibilityStateChange() {
@@ -74,6 +74,7 @@ class MainViewModel : ViewModel() {
 
     companion object {
         const val MAX_ALPHA_PERCENT = 90
+        const val DEFAULT_SLIDER_PERCENTAGE = 50
     }
 
 }
