@@ -1,3 +1,7 @@
 <resources>
     <string name="app_name">AndroidScreenDimmer</string>
+    <string name="notification_message">AndroidScreenDimmer is running!</string>
+    <string name="notification_channel_name">AndroidScreenDimmer</string>
+    <string name="button_text_turn_off_dimmer">TURN OFF</string>
+    <string name="button_text_turn_on_dimmer">TURN ON</string>
 </resources>

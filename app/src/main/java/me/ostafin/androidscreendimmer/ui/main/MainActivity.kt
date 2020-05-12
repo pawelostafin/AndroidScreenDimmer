@@ -1,23 +1,17 @@
 package me.ostafin.androidscreendimmer.ui.main
 
 import android.content.Intent
-import android.graphics.PixelFormat
-import android.os.Build
-import android.util.DisplayMetrics
-import android.view.Gravity
-import android.view.WindowManager.LayoutParams
-import android.view.WindowManager.LayoutParams.*
-import android.widget.SeekBar
 import androidx.core.content.ContextCompat
 import io.reactivex.rxkotlin.addTo
 import kotlinx.android.synthetic.main.activity_main.*
 import me.ostafin.androidscreendimmer.R
-import me.ostafin.androidscreendimmer.service.ForegroundService
+import me.ostafin.androidscreendimmer.service.OverlayForegroundService
 import me.ostafin.androidscreendimmer.ui.base.BaseActivity
 import me.ostafin.androidscreendimmer.ui.main.model.ButtonState
-import me.ostafin.androidscreendimmer.ui.main.model.ButtonState.OFF
-import me.ostafin.androidscreendimmer.ui.main.model.ButtonState.ON
+import me.ostafin.androidscreendimmer.ui.main.model.ButtonState.TURN_ON
+import me.ostafin.androidscreendimmer.ui.main.model.ButtonState.TURN_OFF
 import me.ostafin.androidscreendimmer.util.getDrawOverAppsSystemSettingsIntent
+import me.ostafin.androidscreendimmer.util.setOnSeekBarChangeListener
 
 
 class MainActivity : BaseActivity<MainViewModel>() {
@@ -31,14 +25,15 @@ class MainActivity : BaseActivity<MainViewModel>() {
     override fun setupView() {
         super.setupView()
 
-        createAndStoreOverlayViewIfNeeded()
-        bindUi()
-    }
-
-    private fun createAndStoreOverlayViewIfNeeded() {
-        if (androidScreenDimmerApp.overlayView == null) {
-            androidScreenDimmerApp.overlayView = layoutInflater.inflate(R.layout.my_view, null)
+        onOffButton.setOnClickListener {
+            viewModel.buttonClicked()
         }
+
+        slider.setOnSeekBarChangeListener(
+            onProgressChanged = { _, progress, _ ->
+                viewModel.sliderValueChanged(progress)
+            }
+        )
     }
 
     override fun observeViewModel() {
@@ -50,12 +45,12 @@ class MainActivity : BaseActivity<MainViewModel>() {
             .subscribe(::setOverlayVisibilityState)
             .addTo(compositeDisposable)
 
-        viewModel.lastSliderValueObs
-            .subscribe { slider.progress = it }
+        viewModel.initialSliderProgressObs
+            .subscribe(::setInitialSliderProgress)
             .addTo(compositeDisposable)
 
         viewModel.overlayAlphaValueObs
-            .subscribe { androidScreenDimmerApp.overlayView?.alpha = it }
+            .subscribe(::setOverlayAlphaValue)
             .addTo(compositeDisposable)
 
         viewModel.openDrawOverAppSystemSettingsObs
@@ -63,22 +58,12 @@ class MainActivity : BaseActivity<MainViewModel>() {
             .addTo(compositeDisposable)
     }
 
-    private fun bindUi() {
-        toggleButton.setOnClickListener {
-            viewModel.buttonClicked()
-        }
+    private fun setInitialSliderProgress(progress: Int) {
+        slider.progress = progress
+    }
 
-        slider.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
-            override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
-                viewModel.sliderValueChanged(progress)
-            }
-
-            override fun onStartTrackingTouch(seekBar: SeekBar?) {
-            }
-
-            override fun onStopTrackingTouch(seekBar: SeekBar?) {
-            }
-        })
+    private fun setOverlayAlphaValue(newValue: Float) {
+        androidScreenDimmerApp.overlayView?.alpha = newValue
     }
 
     private fun openDrawOverAppsSystemSettings() {
@@ -87,74 +72,29 @@ class MainActivity : BaseActivity<MainViewModel>() {
     }
 
     private fun setOverlayVisibilityState(isVisible: Boolean) {
-        when {
-            isVisible && shouldDrawOverlay() -> {
-                drawOverlay()
-                startService()
-            }
-            !isVisible && shouldRemoveOverlay() -> {
-                removeOverlay()
-                stopService()
-            }
-        }
-    }
-
-    private fun shouldDrawOverlay(): Boolean {
-        return androidScreenDimmerApp.overlayView?.isAttachedToWindow == false
-    }
-
-    private fun shouldRemoveOverlay(): Boolean {
-        return androidScreenDimmerApp.overlayView?.isAttachedToWindow == true
-    }
-
-    private fun drawOverlay() {
-        val overlayFlag = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            TYPE_APPLICATION_OVERLAY
+        if (isVisible) {
+            startOverlayForegroundService()
         } else {
-            TYPE_SYSTEM_OVERLAY
+            stopOverlayForegroundServiceService()
         }
-
-        val displayMetrics = DisplayMetrics()
-        windowManager.defaultDisplay.getMetrics(displayMetrics)
-        val width = displayMetrics.widthPixels
-        val height = displayMetrics.heightPixels * 1.5
-
-
-        val params = LayoutParams(
-            width,
-            height.toInt(),
-            overlayFlag,
-            FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS or FLAG_NOT_FOCUSABLE or FLAG_NOT_TOUCHABLE or FLAG_LAYOUT_NO_LIMITS or FLAG_FULLSCREEN or FLAG_LAYOUT_IN_SCREEN,
-            PixelFormat.TRANSLUCENT
-        ).apply {
-            gravity = Gravity.START or Gravity.BOTTOM
-            y = (-height * 0.25).toInt()
-        }
-
-        windowManager.addView(androidScreenDimmerApp.overlayView, params)
     }
 
-    private fun startService() {
-        val serviceIntent = Intent(this, ForegroundService::class.java)
-        serviceIntent.putExtra("inputExtra", "Foreground Service Example in Android")
+    private fun startOverlayForegroundService() {
+        val serviceIntent = Intent(this, OverlayForegroundService::class.java)
         ContextCompat.startForegroundService(this, serviceIntent)
     }
 
-    private fun stopService() {
-        val serviceIntent = Intent(this, ForegroundService::class.java)
+    private fun stopOverlayForegroundServiceService() {
+        val serviceIntent = Intent(this, OverlayForegroundService::class.java)
         stopService(serviceIntent)
-    }
-
-    private fun removeOverlay() {
-        windowManager.removeView(androidScreenDimmerApp.overlayView)
     }
 
     private fun setButtonState(buttonState: ButtonState) {
         val buttonText = when (buttonState) {
-            ON -> "ON"
-            OFF -> "OFF"
+            TURN_OFF -> R.string.button_text_turn_off_dimmer
+            TURN_ON -> R.string.button_text_turn_on_dimmer
         }
-        toggleButton.text = buttonText
+        onOffButton.text = getString(buttonText)
     }
 
 }
