@@ -1,16 +1,14 @@
 package me.ostafin.androidscreendimmer.service
 
 import android.app.*
-import android.app.NotificationManager.*
+import android.app.NotificationManager.IMPORTANCE_DEFAULT
 import android.content.Context
 import android.content.Intent
 import android.graphics.PixelFormat
 import android.os.Build
 import android.os.IBinder
 import android.util.DisplayMetrics
-import android.view.Gravity
-import android.view.LayoutInflater
-import android.view.WindowManager
+import android.view.*
 import androidx.core.app.NotificationCompat
 import me.ostafin.androidscreendimmer.R
 import me.ostafin.androidscreendimmer.app.AndroidScreenDimmerApp
@@ -105,10 +103,16 @@ class OverlayForegroundService : Service() {
     private fun drawOverlay() {
         val overlayType = getOverlayType()
         val screenLongerDimensionInPixels = getScreenLongerDimensionInPixels()
+        val yOverlayOffset = (-screenLongerDimensionInPixels * 0.13).toInt()
+        val overlaySize = if (hasHardwareKeys()) {
+            screenLongerDimensionInPixels
+        } else {
+            (screenLongerDimensionInPixels * 1.25).toInt()
+        }
 
         val params = WindowManager.LayoutParams(
-            screenLongerDimensionInPixels,
-            screenLongerDimensionInPixels,
+            overlaySize,
+            overlaySize,
             overlayType,
             WindowManager.LayoutParams.FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS
                     or WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE
@@ -119,9 +123,19 @@ class OverlayForegroundService : Service() {
             PixelFormat.TRANSLUCENT
         ).apply {
             gravity = Gravity.START or Gravity.BOTTOM
+
+            if (!hasHardwareKeys()) {
+                y = yOverlayOffset
+            }
         }
 
         windowManager.addView(androidScreenDimmerApp.overlayView, params)
+    }
+
+    private fun hasHardwareKeys(): Boolean {
+        val hasBackKey = KeyCharacterMap.deviceHasKey(KeyEvent.KEYCODE_BACK)
+        val hasHomeKey = KeyCharacterMap.deviceHasKey(KeyEvent.KEYCODE_HOME)
+        return hasBackKey && hasHomeKey
     }
 
     private fun getScreenLongerDimensionInPixels(): Int {
