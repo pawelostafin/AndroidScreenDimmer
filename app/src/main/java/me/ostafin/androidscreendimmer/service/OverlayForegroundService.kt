@@ -76,11 +76,10 @@ class OverlayForegroundService : Service() {
     private fun createNotification(): Notification {
         val notificationIntent = Intent(this, MainActivity::class.java)
         val pendingIntent = PendingIntent.getActivity(this, 0, notificationIntent, 0)
-        val notificationMessage = getString(R.string.notification_message)
+        val notificationTitle = getString(R.string.notification_title)
         return NotificationCompat.Builder(this, CHANNEL_ID)
-            .setContentTitle(notificationMessage)
-            .setContentText(notificationMessage)
-            .setSmallIcon(R.drawable.ic_launcher_background)
+            .setContentTitle(notificationTitle)
+            .setSmallIcon(R.drawable.notification_icon)
             .setContentIntent(pendingIntent)
             .build()
     }
