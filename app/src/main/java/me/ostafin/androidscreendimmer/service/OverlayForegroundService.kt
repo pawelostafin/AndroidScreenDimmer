@@ -15,6 +15,7 @@ import androidx.core.app.NotificationCompat
 import me.ostafin.androidscreendimmer.R
 import me.ostafin.androidscreendimmer.app.AndroidScreenDimmerApp
 import me.ostafin.androidscreendimmer.ui.main.MainActivity
+import kotlin.math.max
 
 
 class OverlayForegroundService : Service() {
@@ -103,13 +104,11 @@ class OverlayForegroundService : Service() {
 
     private fun drawOverlay() {
         val overlayType = getOverlayType()
-        val screenHeightInPixels = getScreenHeightInPixels()
-        val overlaySize = (screenHeightInPixels * 1.5).toInt()
-        val yOverlayOffset = (-screenHeightInPixels * 0.25).toInt()
+        val screenLongerDimensionInPixels = getScreenLongerDimensionInPixels()
 
         val params = WindowManager.LayoutParams(
-            overlaySize,
-            overlaySize,
+            screenLongerDimensionInPixels,
+            screenLongerDimensionInPixels,
             overlayType,
             WindowManager.LayoutParams.FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS
                     or WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE
@@ -120,16 +119,17 @@ class OverlayForegroundService : Service() {
             PixelFormat.TRANSLUCENT
         ).apply {
             gravity = Gravity.START or Gravity.BOTTOM
-            y = yOverlayOffset
         }
 
         windowManager.addView(androidScreenDimmerApp.overlayView, params)
     }
 
-    private fun getScreenHeightInPixels(): Int {
+    private fun getScreenLongerDimensionInPixels(): Int {
         val displayMetrics = DisplayMetrics()
         windowManager.defaultDisplay.getMetrics(displayMetrics)
-        return displayMetrics.heightPixels
+        val height = displayMetrics.heightPixels
+        val width = displayMetrics.widthPixels
+        return max(height, width)
     }
 
     private fun getOverlayType(): Int {
