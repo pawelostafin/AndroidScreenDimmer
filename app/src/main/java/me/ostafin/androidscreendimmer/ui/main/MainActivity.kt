@@ -1,15 +1,18 @@
 package me.ostafin.androidscreendimmer.ui.main
 
-import android.content.Intent
 import androidx.core.content.ContextCompat
-import io.reactivex.rxkotlin.addTo
+import androidx.lifecycle.lifecycleScope
 import kotlinx.android.synthetic.main.activity_main.*
+import kotlinx.coroutines.flow.launchIn
+import kotlinx.coroutines.flow.onEach
 import me.ostafin.androidscreendimmer.R
 import me.ostafin.androidscreendimmer.service.OverlayForegroundService
 import me.ostafin.androidscreendimmer.ui.base.BaseActivity
 import me.ostafin.androidscreendimmer.ui.main.model.ButtonState
 import me.ostafin.androidscreendimmer.ui.main.model.ButtonState.TURN_ON
 import me.ostafin.androidscreendimmer.ui.main.model.ButtonState.TURN_OFF
+import me.ostafin.androidscreendimmer.ui.main.model.OverlayState
+import me.ostafin.androidscreendimmer.ui.main.model.OverlayState.*
 import me.ostafin.androidscreendimmer.util.getDrawOverAppsSystemSettingsIntent
 import me.ostafin.androidscreendimmer.util.setOnSeekBarChangeListener
 
@@ -25,10 +28,35 @@ class MainActivity : BaseActivity<MainViewModel>() {
     override fun setupView() {
         super.setupView()
 
+        setupOnOffButton()
+        setupSlider()
+    }
+
+    override fun observeViewModel() {
+        viewModel.buttonState
+            .onEach { setButtonState(it) }
+            .launchIn(lifecycleScope)
+
+        viewModel.initialSliderProgressObs
+            .onEach { setInitialSliderProgress(it) }
+            .launchIn(lifecycleScope)
+
+        viewModel.overlayState
+            .onEach { setOverlayState(it) }
+            .launchIn(lifecycleScope)
+
+        viewModel.openDrawOverAppSystemSettings
+            .onEach { openDrawOverAppsSystemSettings() }
+            .launchIn(lifecycleScope)
+    }
+
+    private fun setupOnOffButton() {
         onOffButton.setOnClickListener {
             viewModel.buttonClicked()
         }
+    }
 
+    private fun setupSlider() {
         slider.setOnSeekBarChangeListener(
             onProgressChanged = { _, progress, _ ->
                 viewModel.sliderValueChanged(progress)
@@ -36,34 +64,8 @@ class MainActivity : BaseActivity<MainViewModel>() {
         )
     }
 
-    override fun observeViewModel() {
-        viewModel.buttonStateObs
-            .subscribe(::setButtonState)
-            .addTo(compositeDisposable)
-
-        viewModel.overlayVisibilityStateObs
-            .subscribe(::setOverlayVisibilityState)
-            .addTo(compositeDisposable)
-
-        viewModel.initialSliderProgressObs
-            .subscribe(::setInitialSliderProgress)
-            .addTo(compositeDisposable)
-
-        viewModel.overlayAlphaValueObs
-            .subscribe(::setOverlayAlphaValue)
-            .addTo(compositeDisposable)
-
-        viewModel.openDrawOverAppSystemSettingsObs
-            .subscribe { openDrawOverAppsSystemSettings() }
-            .addTo(compositeDisposable)
-    }
-
     private fun setInitialSliderProgress(progress: Int) {
         slider.progress = progress
-    }
-
-    private fun setOverlayAlphaValue(newValue: Float) {
-        androidScreenDimmerApp.overlayView?.alpha = newValue
     }
 
     private fun openDrawOverAppsSystemSettings() {
@@ -71,21 +73,20 @@ class MainActivity : BaseActivity<MainViewModel>() {
         startActivity(intent)
     }
 
-    private fun setOverlayVisibilityState(isVisible: Boolean) {
-        if (isVisible) {
-            startOverlayForegroundService()
-        } else {
-            stopOverlayForegroundServiceService()
+    private fun setOverlayState(state: OverlayState) {
+        when (state) {
+            is Visible -> startOverlayForegroundService(state.alphaValue)
+            is Hidden -> stopOverlayForegroundServiceService()
         }
     }
 
-    private fun startOverlayForegroundService() {
-        val serviceIntent = Intent(this, OverlayForegroundService::class.java)
+    private fun startOverlayForegroundService(alphaValue: Float) {
+        val serviceIntent = OverlayForegroundService.getStartIntent(this, alphaValue)
         ContextCompat.startForegroundService(this, serviceIntent)
     }
 
     private fun stopOverlayForegroundServiceService() {
-        val serviceIntent = Intent(this, OverlayForegroundService::class.java)
+        val serviceIntent = OverlayForegroundService.getStopIntent(this)
         stopService(serviceIntent)
     }
 
