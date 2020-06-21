@@ -11,15 +11,11 @@ import android.util.DisplayMetrics
 import android.view.*
 import androidx.core.app.NotificationCompat
 import me.ostafin.androidscreendimmer.R
-import me.ostafin.androidscreendimmer.app.AndroidScreenDimmerApp
 import me.ostafin.androidscreendimmer.ui.main.MainActivity
 import kotlin.math.max
 
 
 class OverlayForegroundService : Service() {
-
-    private val androidScreenDimmerApp: AndroidScreenDimmerApp
-        get() = application as AndroidScreenDimmerApp
 
     private val windowManager: WindowManager
         get() = getSystemService(Context.WINDOW_SERVICE) as WindowManager
@@ -27,17 +23,23 @@ class OverlayForegroundService : Service() {
     private val layoutInflater: LayoutInflater
         get() = getSystemService(Context.LAYOUT_INFLATER_SERVICE) as LayoutInflater
 
+    private var overlayView: View? = null
+
+    private fun Intent.getAlphaValueExtra(): Float {
+        return extras!!.getFloat(EXTRA_ALPHA_VALUE)
+    }
+
     override fun onCreate() {
         super.onCreate()
 
-        createAndStoreOverlayViewIfNeeded()
+        createOverlayView()
+        createNotificationChannel()
+        startForeground(NOTIFICATION_ID, createNotification())
     }
 
     override fun onStartCommand(intent: Intent, flags: Int, startId: Int): Int {
-        createNotificationChannel()
-        startForeground(NOTIFICATION_ID, createNotification())
-        drawOverlayIfNeeded()
-        return START_STICKY
+        drawOrUpdateOverlay(intent.getAlphaValueExtra())
+        return START_STICKY_COMPATIBILITY
     }
 
     override fun onDestroy() {
@@ -46,20 +48,26 @@ class OverlayForegroundService : Service() {
         removeOverlayIfNeeded()
     }
 
-    private fun createAndStoreOverlayViewIfNeeded() {
-        if (androidScreenDimmerApp.overlayView == null) {
-            androidScreenDimmerApp.overlayView = layoutInflater.inflate(R.layout.view_overlay, null)
+    private fun createOverlayView() {
+        if (overlayView == null) {
+            overlayView = layoutInflater.inflate(R.layout.view_overlay, null)
         }
     }
 
-    private fun drawOverlayIfNeeded() {
+    private fun drawOrUpdateOverlay(alphaValue: Float) {
         if (shouldDrawOverlay()) {
             drawOverlay()
         }
+
+        updateOverlay(alphaValue)
+    }
+
+    private fun updateOverlay(alphaValue: Float) {
+        overlayView?.alpha = alphaValue
     }
 
     private fun shouldDrawOverlay(): Boolean {
-        return androidScreenDimmerApp.overlayView?.isAttachedToWindow == false
+        return overlayView?.isAttachedToWindow == false
     }
 
     private fun removeOverlayIfNeeded() {
@@ -69,7 +77,7 @@ class OverlayForegroundService : Service() {
     }
 
     private fun shouldRemoveOverlay(): Boolean {
-        return androidScreenDimmerApp.overlayView?.isAttachedToWindow == true
+        return overlayView?.isAttachedToWindow == true
     }
 
     private fun createNotification(): Notification {
@@ -129,7 +137,7 @@ class OverlayForegroundService : Service() {
             }
         }
 
-        windowManager.addView(androidScreenDimmerApp.overlayView, params)
+        windowManager.addView(overlayView, params)
     }
 
     private fun hasHardwareKeys(): Boolean {
@@ -155,11 +163,23 @@ class OverlayForegroundService : Service() {
     }
 
     private fun removeOverlay() {
-        windowManager.removeView(androidScreenDimmerApp.overlayView)
+        windowManager.removeView(overlayView)
     }
 
     companion object {
+        private const val EXTRA_ALPHA_VALUE = "EXTRA_ALPHA_VALUE"
         const val CHANNEL_ID = "AndroidScreenDimmer"
         const val NOTIFICATION_ID = 1
+
+        fun getStartIntent(context: Context, alphaValue: Float): Intent {
+            return Intent(context, OverlayForegroundService::class.java).apply {
+                putExtra(EXTRA_ALPHA_VALUE, alphaValue)
+            }
+        }
+
+        fun getStopIntent(context: Context): Intent {
+            return Intent(context, OverlayForegroundService::class.java)
+        }
+
     }
 }
