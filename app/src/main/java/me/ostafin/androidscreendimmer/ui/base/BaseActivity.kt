@@ -7,7 +7,6 @@ import dagger.android.AndroidInjection
 import dagger.android.AndroidInjector
 import dagger.android.DispatchingAndroidInjector
 import dagger.android.HasAndroidInjector
-import io.reactivex.disposables.CompositeDisposable
 import me.ostafin.androidscreendimmer.app.AndroidScreenDimmerApp
 import javax.inject.Inject
 
@@ -24,8 +23,6 @@ abstract class BaseActivity<VM : BaseViewModel> : AppCompatActivity(), HasAndroi
     lateinit var fragmentInjector: DispatchingAndroidInjector<Any>
 
     override fun androidInjector(): AndroidInjector<Any> = fragmentInjector
-
-    protected val compositeDisposable = CompositeDisposable()
 
     protected val viewModel: VM by lazy {
         ViewModelProvider(this, viewModelFactory).get(viewModelType)

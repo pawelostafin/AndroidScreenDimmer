@@ -1,17 +1,24 @@
 package me.ostafin.androidscreendimmer.domain.checker
 
+import android.app.ActivityManager
 import android.content.Context
-import me.ostafin.androidscreendimmer.app.AndroidScreenDimmerApp
 import me.ostafin.androidscreendimmer.app.di.qualifier.ApplicationContext
+import me.ostafin.androidscreendimmer.service.OverlayForegroundService
 import javax.inject.Inject
 
 class OverlayVisibilityChecker @Inject constructor(
     @ApplicationContext private val context: Context
 ) {
-    private val androidScreenDimmerApp: AndroidScreenDimmerApp
-        get() = context.applicationContext as AndroidScreenDimmerApp
 
     val isOverlayVisible: Boolean
-        get() = androidScreenDimmerApp.overlayView?.isAttachedToWindow ?: false
+        get() {
+            val activityManager = context.getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager
+            val runningServices = activityManager.getRunningServices(Int.MAX_VALUE)
+
+            val runningOverlayService =
+                runningServices.firstOrNull { it.service.className == OverlayForegroundService::class.java.name }
+
+            return runningOverlayService != null
+        }
 
 }

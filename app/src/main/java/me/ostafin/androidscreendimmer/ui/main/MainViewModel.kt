@@ -1,19 +1,19 @@
 package me.ostafin.androidscreendimmer.ui.main
 
-import com.jakewharton.rxrelay2.BehaviorRelay
-import io.reactivex.Observable
-import io.reactivex.android.schedulers.AndroidSchedulers
-import io.reactivex.rxkotlin.addTo
+import androidx.lifecycle.viewModelScope
+import kotlinx.coroutines.flow.*
 import me.ostafin.androidscreendimmer.domain.usecase.CheckDrawOverlaysPermissionStateUseCase
 import me.ostafin.androidscreendimmer.domain.usecase.CheckOverlayVisibilityUseCase
 import me.ostafin.androidscreendimmer.domain.usecase.GetLastAlphaSliderValueUseCase
 import me.ostafin.androidscreendimmer.domain.usecase.SaveLastAlphaSliderValueUseCase
 import me.ostafin.androidscreendimmer.ui.base.BaseViewModel
 import me.ostafin.androidscreendimmer.ui.main.model.ButtonState
-import me.ostafin.androidscreendimmer.ui.main.model.ButtonState.TURN_ON
 import me.ostafin.androidscreendimmer.ui.main.model.ButtonState.TURN_OFF
-import me.ostafin.androidscreendimmer.util.accept
-import java.util.concurrent.TimeUnit
+import me.ostafin.androidscreendimmer.ui.main.model.ButtonState.TURN_ON
+import me.ostafin.androidscreendimmer.ui.main.model.OverlayState
+import me.ostafin.androidscreendimmer.ui.main.model.OverlayState.*
+import me.ostafin.androidscreendimmer.util.flow.BehaviourFlow
+import me.ostafin.androidscreendimmer.util.flow.emit
 import javax.inject.Inject
 
 class MainViewModel @Inject constructor(
@@ -23,22 +23,19 @@ class MainViewModel @Inject constructor(
     private val checkOverlayVisibilityUseCase: CheckOverlayVisibilityUseCase
 ) : BaseViewModel() {
 
-    private var buttonStateRelay: BehaviorRelay<ButtonState> = BehaviorRelay.create()
-    var buttonStateObs: Observable<ButtonState> = buttonStateRelay
+    private var _buttonState: BehaviourFlow<ButtonState> = BehaviourFlow()
+    var buttonState: Flow<ButtonState> = _buttonState
 
-    private val overlayVisibilityStateRelay: BehaviorRelay<Boolean> = BehaviorRelay.create()
-    var overlayVisibilityStateObs: Observable<Boolean> = overlayVisibilityStateRelay
+    private val _overlayState: BehaviourFlow<OverlayState> = BehaviourFlow()
+    var overlayState: Flow<OverlayState> = _overlayState
 
-    private val sliderValueChangedRelay: BehaviorRelay<Int> = BehaviorRelay.create()
+    private val _openDrawOverAppSystemSettings: BehaviourFlow<Unit> = BehaviourFlow()
+    var openDrawOverAppSystemSettings: Flow<Unit> = _openDrawOverAppSystemSettings
 
-    private val overlayAlphaValueRelay: BehaviorRelay<Float> = BehaviorRelay.create()
-    var overlayAlphaValueObs: Observable<Float> = overlayAlphaValueRelay
+    private val _sliderValue: BehaviourFlow<Int> = BehaviourFlow()
 
-    private val openDrawOverAppSystemSettingsRelay: BehaviorRelay<Unit> = BehaviorRelay.create()
-    var openDrawOverAppSystemSettingsObs: Observable<Unit> = openDrawOverAppSystemSettingsRelay
-
-    val initialSliderProgressObs: Observable<Int>
-        get() = Observable.just(getLastAlphaSliderValueUseCase.execute())
+    val initialSliderProgressObs: Flow<Int>
+        get() = flow { emit(getLastAlphaSliderValueUseCase.execute()) }
 
     private val isDrawOverlaysPermissionGranted: Boolean
         get() = checkDrawOverlaysPermissionStateUseCase.execute()
@@ -46,48 +43,87 @@ class MainViewModel @Inject constructor(
     override fun onInitialized() {
         super.onInitialized()
 
-        initializeButtonState()
         setupAlphaSliderValueSaving()
+        setupOverlayUpdateLogic()
+
+        initializeButtonState()
+        initializeOverlayState()
     }
 
     private fun setupAlphaSliderValueSaving() {
-        sliderValueChangedRelay
-            .debounce(ALPHA_VALUE_SAVE_DEBOUNCE_TIME_IN_MILLIS, TimeUnit.MILLISECONDS)
-            .observeOn(AndroidSchedulers.mainThread())
-            .subscribe(saveLastAlphaSliderValueUseCase::execute)
-            .addTo(compositeDisposable)
+        _sliderValue
+            .debounce(ALPHA_VALUE_SAVE_DEBOUNCE_TIME_IN_MILLIS)
+            .onEach { saveLastAlphaSliderValueUseCase.execute(it) }
+            .launchIn(viewModelScope)
+    }
+
+    private fun setupOverlayUpdateLogic() {
+        _sliderValue
+            .filter { _overlayState.valueOrNull is Visible }
+            .map { calculateAlphaFromSliderValue(it) }
+            .map { Visible(it) }
+            .onEach { _overlayState.emit(it) }
+            .launchIn(viewModelScope)
     }
 
     private fun initializeButtonState() {
         val isOverlayVisible = checkOverlayVisibilityUseCase.execute()
         val initialButtonState = if (isOverlayVisible) TURN_OFF else TURN_ON
-        buttonStateRelay.accept(initialButtonState)
+        _buttonState.emit(initialButtonState)
+    }
+
+    private fun initializeOverlayState() {
+        val isOverlayVisible = checkOverlayVisibilityUseCase.execute()
+
+        if (isOverlayVisible) {
+            showOverlayWithLastSavedAlphaValue()
+        } else {
+            hideOverlay()
+        }
     }
 
     fun sliderValueChanged(newValue: Int) {
-        val percentage = newValue / 100f
-        val normalizedAlpha = (MAX_ALPHA_PERCENT - (percentage * MAX_ALPHA_PERCENT)) / 100f
-
-        sliderValueChangedRelay.accept(newValue)
-        overlayAlphaValueRelay.accept(normalizedAlpha)
+        _sliderValue.emit(newValue)
     }
 
     fun buttonClicked() {
         if (isDrawOverlaysPermissionGranted) {
-            emitNewButtonStateAndOverlayVisibilityState()
+            emitNewButtonStateAndOverlayState()
         } else {
-            overlayVisibilityStateRelay.accept(false)
-            openDrawOverAppSystemSettingsRelay.accept()
+            _overlayState.emit(Hidden)
+            _openDrawOverAppSystemSettings.emit()
         }
     }
 
-    private fun emitNewButtonStateAndOverlayVisibilityState() {
-        val currentState = buttonStateRelay.value
+    private fun emitNewButtonStateAndOverlayState() {
+        val currentState = _buttonState.requireValue
         val newState = if (currentState == TURN_ON) TURN_OFF else TURN_ON
-        buttonStateRelay.accept(newState)
+        _buttonState.emit(newState)
 
-        val isOverlayVisible = newState != TURN_ON
-        overlayVisibilityStateRelay.accept(isOverlayVisible)
+        val shouldShowOverlay = newState != TURN_ON
+
+        if (shouldShowOverlay) {
+            showOverlayWithLastSavedAlphaValue()
+        } else {
+            hideOverlay()
+        }
+    }
+
+    private fun showOverlayWithLastSavedAlphaValue() {
+        val sliderValue = getLastAlphaSliderValueUseCase.execute()
+        val alphaValue = calculateAlphaFromSliderValue(sliderValue)
+        val state = Visible(alphaValue)
+
+        _overlayState.emit(state)
+    }
+
+    private fun hideOverlay() {
+        _overlayState.emit(Hidden)
+    }
+
+    private fun calculateAlphaFromSliderValue(sliderValue: Int): Float {
+        val percentage = sliderValue / 100f
+        return (MAX_ALPHA_PERCENT - (percentage * MAX_ALPHA_PERCENT)) / 100f
     }
 
     companion object {
